@@ -1,0 +1,69 @@
+.admin-login {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+}
+
+.admin-login-form {
+  width: 100%;
+  max-width: 360px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 2rem;
+}
+
+.admin-login-form h1 {
+  margin: 0 0 0.25rem 0;
+  font-size: 1.5rem;
+}
+
+.admin-login-subtitle {
+  margin: 0 0 1.5rem 0;
+  font-size: 0.9rem;
+  color: var(--text-muted);
+}
+
+.admin-login-error {
+  margin: 0 0 1rem 0;
+  padding: 0.5rem;
+  background: rgba(248, 81, 73, 0.15);
+  color: var(--danger);
+  border-radius: 6px;
+  font-size: 0.9rem;
+}
+
+.admin-login-form label {
+  display: block;
+  margin-bottom: 1rem;
+  font-size: 0.9rem;
+  color: var(--text-muted);
+}
+
+.admin-login-form input {
+  display: block;
+  width: 100%;
+  margin-top: 0.25rem;
+  padding: 0.5rem 0.75rem;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text);
+}
+
+.admin-login-form button {
+  width: 100%;
+  margin-top: 0.5rem;
+  padding: 0.6rem 1rem;
+  background: var(--accent);
+  border: none;
+  border-radius: 6px;
+  color: #fff;
+  font-weight: 600;
+}
+
+.admin-login-form button:hover {
+  opacity: 0.9;
+}

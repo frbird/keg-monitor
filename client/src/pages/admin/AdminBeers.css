@@ -1,0 +1,185 @@
+.admin-page-desc {
+  color: var(--text-muted);
+  margin: 0 0 1rem 0;
+  font-size: 0.95rem;
+}
+
+.admin-btn {
+  padding: 0.5rem 1rem;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  font-size: 0.9rem;
+}
+
+.admin-btn:hover {
+  background: rgba(255,255,255,0.05);
+}
+
+.admin-btn.primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+  margin-bottom: 1rem;
+}
+
+.admin-btn.small {
+  padding: 0.25rem 0.5rem;
+  font-size: 0.8rem;
+  margin-right: 0.25rem;
+}
+
+.admin-btn.danger {
+  color: var(--danger);
+}
+
+.admin-btn.danger:hover {
+  background: rgba(248, 81, 73, 0.15);
+}
+
+.admin-modal {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+  padding: 1rem;
+}
+
+.admin-modal-content {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 1.5rem;
+  max-width: 420px;
+  width: 100%;
+  max-height: 90vh;
+  overflow: auto;
+}
+
+.admin-modal-wide {
+  max-width: 480px;
+}
+
+.admin-modal-content h2 {
+  margin: 0 0 1rem 0;
+  font-size: 1.2rem;
+}
+
+.admin-modal-content label {
+  display: block;
+  margin-top: 0.75rem;
+  margin-bottom: 0.25rem;
+  font-size: 0.9rem;
+  color: var(--text-muted);
+}
+
+.admin-modal-content input,
+.admin-modal-content select {
+  width: 100%;
+  padding: 0.5rem 0.75rem;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text);
+}
+
+.admin-form-actions {
+  margin-top: 1.5rem;
+  display: flex;
+  gap: 0.5rem;
+  justify-content: flex-end;
+}
+
+.admin-form-actions button.primary {
+  margin-bottom: 0;
+}
+
+.admin-table-wrap {
+  margin-top: 1rem;
+  overflow: auto;
+}
+
+.admin-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.admin-table th,
+.admin-table td {
+  padding: 0.5rem 0.75rem;
+  text-align: left;
+  border-bottom: 1px solid var(--border);
+}
+
+.admin-table th {
+  color: var(--text-muted);
+  font-weight: 600;
+  font-size: 0.85rem;
+}
+
+.admin-secret-box {
+  margin-top: 1rem;
+  padding: 1rem;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+
+.admin-secret-box h3 {
+  margin: 0 0 0.5rem 0;
+  font-size: 1rem;
+}
+
+.admin-secret-box code {
+  font-family: var(--font-mono);
+  font-size: 0.85rem;
+  background: var(--surface);
+  padding: 0.1rem 0.3rem;
+  border-radius: 4px;
+}
+
+.admin-taps-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 1rem;
+  margin-top: 1rem;
+}
+
+.admin-tap-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 1rem;
+}
+
+.admin-tap-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.admin-tap-level {
+  font-family: var(--font-mono);
+  color: var(--beer);
+}
+
+.admin-tap-beer {
+  margin: 0.25rem 0;
+  font-size: 0.95rem;
+}
+
+.admin-tap-meta {
+  margin: 0 0 0.75rem 0;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+
+.admin-tap-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+}
