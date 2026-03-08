@@ -55,8 +55,10 @@ The **WiFiS3** and **WiFiSSLClient** are included with the **Arduino Uno R4 WiFi
 
 ## Server and taps
 
-- In **Admin → Taps**, create a tap and set its **Device ID** to the same `deviceId` as in the sketch.
-- If this Arduino reports more than one tap, set **Device tap index** to 0 for the first tap, 1 for the second, etc., so the order matches the arrays in the firmware.
+- In **Admin → Taps**, create a tap and set its **Device** to the same device as in the sketch (from **Admin → Devices**).
+- If this Arduino reports more than one tap, set **Device tap index** to 0 for the first tap, 1 for the second, etc., so the order matches the arrays in the firmware. When you select the same device for another tap, the form suggests the next free index.
+
+**Only one tap shows temperature/pour?** Assign the **same device** to every tap that this Arduino should feed, and give each tap a different **Device tap index** (0, 1, 2…). The server maps sensor index 0 → tap with index 0, index 1 → tap with index 1, and drops readings when there is no tap for that index.
 
 ## HTTPS
 

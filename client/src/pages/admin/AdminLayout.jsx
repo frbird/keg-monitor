@@ -36,8 +36,10 @@ export default function AdminLayout() {
       <aside className="admin-sidebar">
         <h2 className="admin-sidebar-title">Keg Admin</h2>
         <nav className="admin-nav">
+          <NavLink to="/admin/dashboard" className={({ isActive }) => isActive ? 'active' : ''}>Dashboard</NavLink>
           <NavLink to="/admin/taps" className={({ isActive }) => isActive ? 'active' : ''}>Taps</NavLink>
           <NavLink to="/admin/beers" className={({ isActive }) => isActive ? 'active' : ''}>Beer Library</NavLink>
+          <NavLink to="/admin/suppliers" className={({ isActive }) => isActive ? 'active' : ''}>Suppliers</NavLink>
           <NavLink to="/admin/devices" className={({ isActive }) => isActive ? 'active' : ''}>Devices</NavLink>
         </nav>
         <div className="admin-sidebar-footer">

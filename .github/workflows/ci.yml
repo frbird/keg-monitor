@@ -1,0 +1,31 @@
+# Run test suite on Test branch and on PRs targeting Test (e.g. from issue branches)
+name: CI (Test branch)
+
+on:
+  push:
+    branches: [Test]
+  pull_request:
+    branches: [Test]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install client dependencies and build
+        run: cd client && npm ci && cd .. && npm run build
+        env:
+          CI: true
+
+      - name: Run tests
+        run: npm run test:ci

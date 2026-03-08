@@ -46,6 +46,18 @@ const clientDist = path.join(__dirname, '..', 'client', 'dist');
 app.use(express.static(clientDist));
 
 // --- Public API (dashboard data, no auth) ---
+function getDashboardSettings() {
+  const rows = db.prepare('SELECT key, value FROM settings WHERE key LIKE ?').all('dashboard_%');
+  const raw = Object.fromEntries(rows.map((r) => [r.key, r.value]));
+  return {
+    title: raw.dashboard_title || 'Keg Monitor',
+    logoUrl: raw.dashboard_logo_url || null,
+    showKegSize: raw.dashboard_show_keg_size !== 'false',
+    tempUnit: raw.dashboard_temp_unit === 'C' ? 'C' : 'F',
+    showDevice: raw.dashboard_show_device === 'true'
+  };
+}
+
 app.get('/api/dashboard', (req, res) => {
   const taps = db.prepare(`
     SELECT t.id, t.name, t.remaining_ounces, t.total_ounces, t.updated_at, t.device_id,
@@ -86,7 +98,7 @@ app.get('/api/dashboard', (req, res) => {
     deviceSensors: t.device_sensor_config ? (() => { try { return JSON.parse(t.device_sensor_config); } catch { return null; } })() : null
   }));
 
-  res.json({ taps: data });
+  res.json({ taps: data, settings: getDashboardSettings() });
 });
 
 // --- Device API (hardware sends metrics; auth by device id + secret) ---
@@ -208,32 +220,79 @@ app.get('/api/admin/me', (req, res) => {
 
 // Beers
 app.get('/api/admin/beers', adminAuth, (req, res) => {
-  const rows = db.prepare('SELECT * FROM beers ORDER BY brewery, name').all();
+  const rows = db.prepare(`
+    SELECT b.*, s.name AS supplier_name, s.email AS supplier_email, s.phone AS supplier_phone, s.website AS supplier_website
+    FROM beers b
+    LEFT JOIN suppliers s ON b.supplier_id = s.id
+    ORDER BY b.brewery, b.name
+  `).all();
   res.json(rows);
 });
 
 app.post('/api/admin/beers', adminAuth, (req, res) => {
-  const { brewery, beer_style, name, purchase_business, business_email, business_phone, logo_url } = req.body || {};
+  const { brewery, beer_style, name, supplier_id, purchase_business, business_email, business_phone, logo_url } = req.body || {};
   if (!brewery || !beer_style || !name) return res.status(400).json({ error: 'brewery, beer_style, name required' });
   const stmt = db.prepare(
-    'INSERT INTO beers (brewery, beer_style, name, purchase_business, business_email, business_phone, logo_url) VALUES (?, ?, ?, ?, ?, ?, ?)'
+    'INSERT INTO beers (brewery, beer_style, name, supplier_id, purchase_business, business_email, business_phone, logo_url) VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
   );
-  stmt.run(brewery, beer_style, name, purchase_business || null, business_email || null, business_phone || null, logo_url || null);
+  stmt.run(
+    brewery, beer_style, name,
+    supplier_id || null,
+    purchase_business || null, business_email || null, business_phone || null,
+    logo_url || null
+  );
   res.status(201).json({ id: db.prepare('SELECT last_insert_rowid() as id').get().id });
 });
 
 app.put('/api/admin/beers/:id', adminAuth, (req, res) => {
   const id = Number(req.params.id);
-  const { brewery, beer_style, name, purchase_business, business_email, business_phone, logo_url } = req.body || {};
+  if (Number.isNaN(id)) return res.status(400).json({ error: 'Invalid beer id' });
+  const { brewery, beer_style, name, supplier_id, purchase_business, business_email, business_phone, logo_url } = req.body || {};
+  if (!brewery || !beer_style || !name) return res.status(400).json({ error: 'brewery, beer_style, name required' });
   const stmt = db.prepare(
-    'UPDATE beers SET brewery=?, beer_style=?, name=?, purchase_business=?, business_email=?, business_phone=?, logo_url=? WHERE id=?'
+    'UPDATE beers SET brewery=?, beer_style=?, name=?, supplier_id=?, purchase_business=?, business_email=?, business_phone=?, logo_url=? WHERE id=?'
   );
-  stmt.run(brewery, beer_style, name, purchase_business || null, business_email || null, business_phone || null, logo_url || null, id);
+  const result = stmt.run(brewery, beer_style, name, supplier_id || null, purchase_business || null, business_email || null, business_phone || null, logo_url || null, id);
+  if (result.changes === 0) return res.status(404).json({ error: 'Beer not found' });
   res.json({ ok: true });
 });
 
 app.delete('/api/admin/beers/:id', adminAuth, (req, res) => {
-  db.prepare('DELETE FROM beers WHERE id = ?').run(Number(req.params.id));
+  const id = Number(req.params.id);
+  if (Number.isNaN(id)) return res.status(400).json({ error: 'Invalid beer id' });
+  const inUse = db.prepare('SELECT id FROM taps WHERE beer_id = ? LIMIT 1').get(id);
+  if (inUse) return res.status(400).json({ error: 'Beer is in use on a tap. Unassign it from the tap first.' });
+  const stmt = db.prepare('DELETE FROM beers WHERE id = ?');
+  const result = stmt.run(id);
+  if (result.changes === 0) return res.status(404).json({ error: 'Beer not found' });
+  res.json({ ok: true });
+});
+
+// Suppliers
+app.get('/api/admin/suppliers', adminAuth, (req, res) => {
+  const rows = db.prepare('SELECT * FROM suppliers ORDER BY name').all();
+  res.json(rows);
+});
+
+app.post('/api/admin/suppliers', adminAuth, (req, res) => {
+  const { name, email, phone, website } = req.body || {};
+  if (!name || !name.trim()) return res.status(400).json({ error: 'name required' });
+  const stmt = db.prepare('INSERT INTO suppliers (name, email, phone, website) VALUES (?, ?, ?, ?)');
+  stmt.run((name || '').trim(), email || null, phone || null, website || null);
+  res.status(201).json({ id: db.prepare('SELECT last_insert_rowid() as id').get().id });
+});
+
+app.put('/api/admin/suppliers/:id', adminAuth, (req, res) => {
+  const id = Number(req.params.id);
+  const { name, email, phone, website } = req.body || {};
+  const stmt = db.prepare('UPDATE suppliers SET name=?, email=?, phone=?, website=? WHERE id=?');
+  stmt.run((name || '').trim(), email || null, phone || null, website || null, id);
+  res.json({ ok: true });
+});
+
+app.delete('/api/admin/suppliers/:id', adminAuth, (req, res) => {
+  db.prepare('UPDATE beers SET supplier_id = NULL WHERE supplier_id = ?').run(Number(req.params.id));
+  db.prepare('DELETE FROM suppliers WHERE id = ?').run(Number(req.params.id));
   res.json({ ok: true });
 });
 
@@ -319,6 +378,22 @@ app.put('/api/admin/taps/:id', adminAuth, (req, res) => {
 app.delete('/api/admin/taps/:id', adminAuth, (req, res) => {
   db.prepare('DELETE FROM taps WHERE id = ?').run(Number(req.params.id));
   res.json({ ok: true });
+});
+
+// Dashboard settings (admin only)
+app.get('/api/admin/dashboard-settings', adminAuth, (req, res) => {
+  res.json(getDashboardSettings());
+});
+
+app.put('/api/admin/dashboard-settings', adminAuth, (req, res) => {
+  const { title, logoUrl, showKegSize, tempUnit, showDevice } = req.body || {};
+  const upsert = db.prepare('INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value');
+  if (title !== undefined) upsert.run('dashboard_title', String(title).trim() || 'Keg Monitor');
+  if (logoUrl !== undefined) upsert.run('dashboard_logo_url', logoUrl == null ? '' : String(logoUrl).trim());
+  if (showKegSize !== undefined) upsert.run('dashboard_show_keg_size', showKegSize ? 'true' : 'false');
+  if (tempUnit !== undefined) upsert.run('dashboard_temp_unit', tempUnit === 'C' ? 'C' : 'F');
+  if (showDevice !== undefined) upsert.run('dashboard_show_device', showDevice ? 'true' : 'false');
+  res.json(getDashboardSettings());
 });
 
 // Devices (for hardware auth)
@@ -409,6 +484,10 @@ app.get('*', (req, res) => {
   res.sendFile(path.join(clientDist, 'index.html'));
 });
 
-app.listen(PORT, () => {
-  console.log(`Keg Monitor server on http://localhost:${PORT}`);
-});
+if (process.env.NODE_ENV !== 'test') {
+  app.listen(PORT, () => {
+    console.log(`Keg Monitor server on http://localhost:${PORT}`);
+  });
+}
+
+module.exports = app;

@@ -5,6 +5,8 @@ import AdminLogin from './pages/admin/AdminLogin';
 import AdminBeers from './pages/admin/AdminBeers';
 import AdminTaps from './pages/admin/AdminTaps';
 import AdminDevices from './pages/admin/AdminDevices';
+import AdminSuppliers from './pages/admin/AdminSuppliers';
+import AdminDashboard from './pages/admin/AdminDashboard';
 
 function App() {
   return (
@@ -15,7 +17,9 @@ function App() {
         <Route index element={<Navigate to="/admin/taps" replace />} />
         <Route path="taps" element={<AdminTaps />} />
         <Route path="beers" element={<AdminBeers />} />
+        <Route path="suppliers" element={<AdminSuppliers />} />
         <Route path="devices" element={<AdminDevices />} />
+        <Route path="dashboard" element={<AdminDashboard />} />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>

@@ -9,12 +9,23 @@ CREATE TABLE IF NOT EXISTS users (
   created_at TEXT DEFAULT (datetime('now'))
 );
 
+-- Beer suppliers (where you purchase kegs)
+CREATE TABLE IF NOT EXISTS suppliers (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  name TEXT NOT NULL,
+  email TEXT,
+  phone TEXT,
+  website TEXT,
+  created_at TEXT DEFAULT (datetime('now'))
+);
+
 -- Beer library
 CREATE TABLE IF NOT EXISTS beers (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   brewery TEXT NOT NULL,
   beer_style TEXT NOT NULL,
   name TEXT NOT NULL,
+  supplier_id INTEGER REFERENCES suppliers(id),
   purchase_business TEXT,
   business_email TEXT,
   business_phone TEXT,
@@ -88,3 +99,9 @@ CREATE INDEX IF NOT EXISTS idx_temperature_tap ON temperature_readings(tap_id);
 CREATE INDEX IF NOT EXISTS idx_temperature_created ON temperature_readings(created_at);
 CREATE INDEX IF NOT EXISTS idx_pour_tap ON pour_events(tap_id);
 CREATE INDEX IF NOT EXISTS idx_pour_created ON pour_events(created_at);
+
+-- App/dashboard settings (key-value; public settings for dashboard, admin-only edit)
+CREATE TABLE IF NOT EXISTS settings (
+  key TEXT PRIMARY KEY,
+  value TEXT NOT NULL
+);

@@ -5,6 +5,7 @@ export default function AdminTaps() {
   const [taps, setTaps] = useState([]);
   const [beers, setBeers] = useState([]);
   const [kegSizes, setKegSizes] = useState([]);
+  const [devices, setDevices] = useState([]);
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState(null);
   const [form, setForm] = useState({ name: '', keg_size_id: '', beer_id: '', device_id: '', device_tap_index: 0, flow_pin: 2, temp_pin: 3, pulses_per_ounce: 1, new_keg: false });
@@ -13,11 +14,13 @@ export default function AdminTaps() {
     Promise.all([
       fetch('/api/admin/taps', { credentials: 'include' }).then((r) => r.json()),
       fetch('/api/admin/beers', { credentials: 'include' }).then((r) => r.json()),
-      fetch('/api/admin/keg-sizes', { credentials: 'include' }).then((r) => r.json())
-    ]).then(([t, b, k]) => {
+      fetch('/api/admin/keg-sizes', { credentials: 'include' }).then((r) => r.json()),
+      fetch('/api/admin/devices', { credentials: 'include' }).then((r) => r.json())
+    ]).then(([t, b, k, d]) => {
       setTaps(t);
       setBeers(b);
       setKegSizes(k);
+      setDevices(d);
     }).finally(() => setLoading(false));
   }, []);
 
@@ -135,10 +138,26 @@ export default function AdminTaps() {
                   <option key={b.id} value={b.id}>{b.brewery} – {b.name}</option>
                 ))}
               </select>
-              <label>Device ID (for hardware)</label>
-              <input value={form.device_id} onChange={(e) => setForm((f) => ({ ...f, device_id: e.target.value }))} placeholder="Same as in Arduino config" />
+              <label>Device (Arduino)</label>
+              <select
+                value={form.device_id}
+                onChange={(e) => {
+                  const deviceId = e.target.value;
+                  const usedIndices = (taps || [])
+                    .filter((t) => t.device_id === deviceId && t.id !== editing)
+                    .map((t) => (t.device_tap_index != null ? Number(t.device_tap_index) : 0));
+                  const nextIndex = usedIndices.length === 0 ? 0 : (Math.max(...usedIndices) + 1);
+                  setForm((f) => ({ ...f, device_id: deviceId, device_tap_index: nextIndex }));
+                }}
+              >
+                <option value="">— None —</option>
+                {devices.map((d) => (
+                  <option key={d.id} value={d.id}>{d.name ? `${d.name} (${d.id})` : d.id}</option>
+                ))}
+              </select>
               <label>Device tap index (0 = first tap on this device)</label>
               <input type="number" min="0" value={form.device_tap_index} onChange={(e) => setForm((f) => ({ ...f, device_tap_index: Number(e.target.value) }))} />
+              <p className="admin-form-hint">Assign the <strong>same device</strong> to each tap that this Arduino serves; use index 0, 1, 2… so the server matches sensor order.</p>
               <label>Flow sensor pin (Arduino)</label>
               <input type="number" min="0" max="20" value={form.flow_pin} onChange={(e) => setForm((f) => ({ ...f, flow_pin: Number(e.target.value) }))} />
               <label>Temperature sensor pin (Arduino 1-Wire)</label>

@@ -3,31 +3,38 @@ import './AdminBeers.css';
 
 export default function AdminBeers() {
   const [beers, setBeers] = useState([]);
+  const [suppliers, setSuppliers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState(null);
-  const [form, setForm] = useState({ brewery: '', beer_style: '', name: '', purchase_business: '', business_email: '', business_phone: '', logo_url: '' });
+  const [form, setForm] = useState({ brewery: '', beer_style: '', name: '', supplier_id: '', purchase_business: '', business_email: '', business_phone: '', supplier_website: '', logo_url: '' });
 
   useEffect(() => {
-    fetch('/api/admin/beers', { credentials: 'include' })
-      .then((r) => r.json())
-      .then(setBeers)
-      .finally(() => setLoading(false));
+    Promise.all([
+      fetch('/api/admin/beers', { credentials: 'include' }).then((r) => r.json()),
+      fetch('/api/admin/suppliers', { credentials: 'include' }).then((r) => r.json())
+    ]).then(([b, s]) => {
+      setBeers(b);
+      setSuppliers(s);
+    }).finally(() => setLoading(false));
   }, []);
 
   function openAdd() {
     setEditing('new');
-    setForm({ brewery: '', beer_style: '', name: '', purchase_business: '', business_email: '', business_phone: '', logo_url: '' });
+    setForm({ brewery: '', beer_style: '', name: '', supplier_id: '', purchase_business: '', business_email: '', business_phone: '', supplier_website: '', logo_url: '' });
   }
 
   function openEdit(beer) {
     setEditing(beer.id);
+    const supplierId = beer.supplier_id != null ? String(beer.supplier_id) : '';
     setForm({
       brewery: beer.brewery,
       beer_style: beer.beer_style,
       name: beer.name,
-      purchase_business: beer.purchase_business || '',
-      business_email: beer.business_email || '',
-      business_phone: beer.business_phone || '',
+      supplier_id: supplierId,
+      purchase_business: beer.supplier_id ? (beer.supplier_name || '') : (beer.purchase_business || ''),
+      business_email: beer.supplier_id ? (beer.supplier_email || '') : (beer.business_email || ''),
+      business_phone: beer.supplier_id ? (beer.supplier_phone || '') : (beer.business_phone || ''),
+      supplier_website: beer.supplier_id ? (beer.supplier_website || '') : '',
       logo_url: beer.logo_url || ''
     });
   }
@@ -38,7 +45,17 @@ export default function AdminBeers() {
 
   async function save(e) {
     e.preventDefault();
-    const payload = { ...form };
+    const supplierId = form.supplier_id ? Number(form.supplier_id) : null;
+    const payload = {
+      brewery: form.brewery,
+      beer_style: form.beer_style,
+      name: form.name,
+      supplier_id: supplierId,
+      purchase_business: supplierId ? null : (form.purchase_business || null),
+      business_email: supplierId ? null : (form.business_email || null),
+      business_phone: supplierId ? null : (form.business_phone || null),
+      logo_url: form.logo_url || null
+    };
     if (editing === 'new') {
       const res = await fetch('/api/admin/beers', {
         method: 'POST',
@@ -46,25 +63,43 @@ export default function AdminBeers() {
         credentials: 'include',
         body: JSON.stringify(payload)
       });
-      if (!res.ok) return;
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        alert(err.error || 'Failed to create beer');
+        return;
+      }
       const { id } = await res.json();
       setBeers((prev) => [...prev, { id, ...payload }]);
     } else {
-      await fetch(`/api/admin/beers/${editing}`, {
+      const res = await fetch(`/api/admin/beers/${editing}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
         body: JSON.stringify(payload)
       });
-      setBeers((prev) => prev.map((b) => (b.id === editing ? { ...b, ...payload } : b)));
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        alert(err.error || 'Failed to update beer');
+        return;
+      }
+      // Refetch so we have full row (supplier_name, etc.)
+      const updated = await fetch('/api/admin/beers', { credentials: 'include' }).then((r) => r.json());
+      setBeers(updated);
     }
     closeForm();
   }
 
   async function remove(id) {
     if (!confirm('Delete this beer from the library?')) return;
-    await fetch(`/api/admin/beers/${id}`, { method: 'DELETE', credentials: 'include' });
-    setBeers((prev) => prev.filter((b) => b.id !== id));
+    const beerId = Number(id);
+    if (Number.isNaN(beerId)) return;
+    const res = await fetch(`/api/admin/beers/${beerId}`, { method: 'DELETE', credentials: 'include' });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      alert(err.error || 'Delete failed. The beer may be in use on a tap.');
+      return;
+    }
+    setBeers((prev) => prev.filter((b) => Number(b.id) !== beerId));
   }
 
   if (loading) return <p>Loading…</p>;
@@ -86,12 +121,36 @@ export default function AdminBeers() {
               <input value={form.beer_style} onChange={(e) => setForm((f) => ({ ...f, beer_style: e.target.value }))} required />
               <label>Beer name (from brewery) *</label>
               <input value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} required />
+              <label>Supplier (where you purchase)</label>
+              <select value={form.supplier_id} onChange={(e) => {
+                const id = e.target.value;
+                const sup = suppliers.find((s) => String(s.id) === id);
+                setForm((f) => ({
+                  ...f,
+                  supplier_id: id,
+                  purchase_business: sup ? sup.name : '',
+                  business_email: sup ? (sup.email || '') : '',
+                  business_phone: sup ? (sup.phone || '') : '',
+                  supplier_website: sup ? (sup.website || '') : ''
+                }));
+              }}>
+                <option value="">— None —</option>
+                {suppliers.map((s) => (
+                  <option key={s.id} value={s.id}>{s.name}</option>
+                ))}
+              </select>
               <label>Purchase business</label>
-              <input value={form.purchase_business} onChange={(e) => setForm((f) => ({ ...f, purchase_business: e.target.value }))} />
+              <input value={form.purchase_business} readOnly placeholder={form.supplier_id ? '' : 'Select a supplier above'} />
               <label>Business email</label>
-              <input type="email" value={form.business_email} onChange={(e) => setForm((f) => ({ ...f, business_email: e.target.value }))} />
+              <input type="email" value={form.business_email} readOnly placeholder={form.supplier_id ? '' : 'Select a supplier above'} />
               <label>Business phone</label>
-              <input value={form.business_phone} onChange={(e) => setForm((f) => ({ ...f, business_phone: e.target.value }))} />
+              <input value={form.business_phone} readOnly placeholder={form.supplier_id ? '' : 'Select a supplier above'} />
+              {form.supplier_id && form.supplier_website ? (
+                <>
+                  <label>Website</label>
+                  <input type="url" value={form.supplier_website} readOnly />
+                </>
+              ) : null}
               <label>Brewery logo URL</label>
               <input value={form.logo_url} onChange={(e) => setForm((f) => ({ ...f, logo_url: e.target.value }))} placeholder="https://..." />
               <div className="admin-form-actions">
@@ -110,7 +169,7 @@ export default function AdminBeers() {
               <th>Brewery</th>
               <th>Style</th>
               <th>Name</th>
-              <th>Purchase business</th>
+              <th>Supplier / Purchase</th>
               <th></th>
             </tr>
           </thead>
@@ -120,7 +179,7 @@ export default function AdminBeers() {
                 <td>{b.brewery}</td>
                 <td>{b.beer_style}</td>
                 <td>{b.name}</td>
-                <td>{b.purchase_business || '—'}</td>
+                <td>{b.supplier_id ? (b.supplier_name || '—') : (b.purchase_business || '—')}</td>
                 <td>
                   <button type="button" className="admin-btn small" onClick={() => openEdit(b)}>Edit</button>
                   <button type="button" className="admin-btn small danger" onClick={() => remove(b.id)}>Delete</button>

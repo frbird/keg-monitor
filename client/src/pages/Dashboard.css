@@ -20,13 +20,16 @@
   border-bottom: 1px solid var(--border);
 }
 
-.dashboard-header {
+.dashboard-header-brand {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  margin-bottom: 2rem;
-  padding-bottom: 1rem;
-  border-bottom: 1px solid var(--border);
+  gap: 1rem;
+}
+
+.dashboard-header-logo {
+  height: 40px;
+  max-width: 160px;
+  object-fit: contain;
 }
 
 .dashboard-header-actions {

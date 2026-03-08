@@ -17,13 +17,9 @@ function KegIcon({ percent, showPercent = true, beerColor = 'var(--beer)' }) {
   );
 }
 
-function TapCard({ tap, showPercent }) {
-  const tempF = tap.temperatureCelsius != null
-    ? (tap.temperatureCelsius * 9 / 5 + 32).toFixed(1)
-    : null;
-  const tempC = tap.temperatureCelsius != null
-    ? tap.temperatureCelsius.toFixed(1)
-    : null;
+function TapCard({ tap, showPercent, showKegSize = true, tempUnit = 'F', showDevice = false }) {
+  const tempC = tap.temperatureCelsius != null ? tap.temperatureCelsius : null;
+  const tempF = tempC != null ? (tempC * 9 / 5 + 32) : null;
 
   return (
     <article className="tap-card">
@@ -38,7 +34,7 @@ function TapCard({ tap, showPercent }) {
           <p className="tap-card-meta">
             {tap.brewery && <span>{tap.brewery}</span>}
             {tap.beerStyle && <span>{tap.beerStyle}</span>}
-            {tap.kegSizeName && <span>{tap.kegSizeName}</span>}
+            {showKegSize && tap.kegSizeName && <span>{tap.kegSizeName}</span>}
           </p>
         </div>
       </div>
@@ -50,16 +46,17 @@ function TapCard({ tap, showPercent }) {
         />
       </div>
       <div className="tap-card-temp">
-        {tempF != null ? (
-          <>
-            <span className="temp-value">{tempF}°F</span>
-            <span className="temp-unit"> / {tempC}°C</span>
-          </>
+        {tempC != null ? (
+          tempUnit === 'C' ? (
+            <span className="temp-value">{tempC.toFixed(1)}°C</span>
+          ) : (
+            <span className="temp-value">{tempF.toFixed(1)}°F</span>
+          )
         ) : (
           <span className="temp-na">—</span>
         )}
       </div>
-      {(tap.deviceBoard || (tap.deviceSensors && tap.deviceSensors.length)) ? (
+      {showDevice && (tap.deviceBoard || (tap.deviceSensors && tap.deviceSensors.length)) ? (
         <div className="tap-card-device">
           {tap.deviceBoard && <span className="tap-card-device-board">{tap.deviceBoard}</span>}
           {tap.deviceSensors && Array.isArray(tap.deviceSensors) && tap.deviceSensors.length ? (
@@ -74,7 +71,7 @@ function TapCard({ tap, showPercent }) {
 }
 
 export default function Dashboard() {
-  const [data, setData] = useState({ taps: [] });
+  const [data, setData] = useState({ taps: [], settings: null });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [showPercent, setShowPercent] = useState(() => {
@@ -112,6 +109,8 @@ export default function Dashboard() {
     return () => { cancelled = true; clearInterval(interval); };
   }, []);
 
+  const settings = data.settings || { title: 'Keg Monitor', logoUrl: null, showKegSize: true, tempUnit: 'F', showDevice: false };
+
   if (loading && data.taps.length === 0) {
     return (
       <div className="dashboard dashboard-loading">
@@ -131,7 +130,12 @@ export default function Dashboard() {
   return (
     <div className="dashboard">
       <header className="dashboard-header">
-        <h1>Keg Monitor</h1>
+        <div className="dashboard-header-brand">
+          {settings.logoUrl ? (
+            <img src={settings.logoUrl} alt="" className="dashboard-header-logo" />
+          ) : null}
+          <h1>{settings.title}</h1>
+        </div>
         <div className="dashboard-header-actions">
           <label className="dashboard-percent-toggle">
             <input type="checkbox" checked={showPercent} onChange={toggleShowPercent} />
@@ -144,7 +148,16 @@ export default function Dashboard() {
         {data.taps.length === 0 ? (
           <p className="empty-state">No taps configured. Add taps in Admin.</p>
         ) : (
-          data.taps.map((tap) => <TapCard key={tap.id} tap={tap} showPercent={showPercent} />)
+          data.taps.map((tap) => (
+            <TapCard
+              key={tap.id}
+              tap={tap}
+              showPercent={showPercent}
+              showKegSize={settings.showKegSize}
+              tempUnit={settings.tempUnit}
+              showDevice={settings.showDevice}
+            />
+          ))
         )}
       </main>
     </div>

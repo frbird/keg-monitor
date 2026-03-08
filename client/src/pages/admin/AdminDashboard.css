@@ -1,0 +1,56 @@
+@import './AdminBeers.css';
+
+.admin-dashboard-form {
+  max-width: 480px;
+}
+
+.admin-dashboard-section {
+  margin-bottom: 1.5rem;
+}
+
+.admin-dashboard-section-title {
+  font-size: 1rem;
+  margin: 0 0 0.75rem 0;
+  color: var(--text-muted);
+}
+
+.admin-dashboard-form label {
+  display: block;
+  margin-top: 0.75rem;
+  margin-bottom: 0.25rem;
+  font-size: 0.9rem;
+  color: var(--text-muted);
+}
+
+.admin-dashboard-form input[type="text"],
+.admin-dashboard-form input[type="url"],
+.admin-dashboard-form select {
+  width: 100%;
+  padding: 0.5rem 0.75rem;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text);
+}
+
+.admin-dashboard-check {
+  display: flex !important;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+  cursor: pointer;
+}
+
+.admin-dashboard-check input {
+  width: auto;
+}
+
+.admin-dashboard-logo-preview {
+  margin-top: 0.5rem;
+}
+
+.admin-dashboard-logo-preview img {
+  max-height: 48px;
+  max-width: 160px;
+  object-fit: contain;
+}
