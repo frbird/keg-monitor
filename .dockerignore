@@ -1,0 +1,18 @@
+# Dependencies (we only copy server + client/dist; root package.json is copied explicitly)
+node_modules
+client/node_modules
+# Build output: leave client/dist so Dockerfile can COPY it (built in workflow step)
+# client/dist
+# Dev and test
+tests
+coverage
+*.test.js
+jest.config.js
+.git
+.github
+.env
+.env.*
+*.db
+*.log
+.DS_Store
+hardware
