@@ -5,29 +5,35 @@ Firmware for the Arduino Uno R4 WiFi that reads a **Titan 300** flow sensor and 
 ## Hardware
 
 - **Arduino Uno R4 WiFi**
-- **Titan 300 flow sensor** (or similar pulse-output flow meter)
-- **DS18B20** temperature sensor(s) (one per tap on a single 1-Wire bus)
+- **Two** flow sensors (e.g. Titan 300) – one per tap
+- **One or more** DS18B20 temperature sensor(s) on a single 1-Wire bus (pin 7)
 
 ## Wiring
 
-### Titan 300 flow sensor
+**Common ground and power:** All sensors can share the same **5V** and **GND**. Connect every sensor’s VCC to **5V** and GND to **GND**.
 
-| Sensor | Arduino |
-|--------|---------|
-| Red (VCC) | 5V or 3.3V |
-| Black (GND) | GND |
-| Yellow (signal) | Digital pin 2 (or another interrupt-capable pin) |
+Default pinout (matches the sketch defaults):
 
-Use the same pin as `FLOW_PIN` in the sketch.
+| Signal        | Arduino pin | Use                    |
+|---------------|-------------|------------------------|
+| Flow sensor 1 | **2**       | Tap 0 flow (interrupt) |
+| Flow sensor 2 | **3**       | Tap 1 flow (interrupt) |
+| Temperature   | **7**       | DS18B20 1-Wire data    |
+| Power         | **5V**      | All sensors VCC        |
+| Ground        | **GND**     | All sensors GND        |
 
-### DS18B20 (BOJACK or similar)
+### Flow sensors (e.g. Titan 300)
 
-- **VDD** → 3.3V  
+- **Red (VCC)** → 5V  
+- **Black (GND)** → GND  
+- **Yellow (signal)** → Pin 2 (tap 0) and Pin 3 (tap 1)
+
+### DS18B20 temperature
+
+- **VDD** → 5V  
 - **GND** → GND  
-- **Data** → digital pin 3 (or `ONE_WIRE_PIN`)  
-- **4.7 kΩ** resistor between Data and VDD  
-
-Multiple DS18B20s can share the same data pin; each will get an index (0, 1, …) in code.
+- **Data** → Pin 7  
+- **4.7 kΩ** resistor between Data and VDD (or Data and 5V)
 
 ## Libraries
 
@@ -44,7 +50,7 @@ The **WiFiS3** and **WiFiSSLClient** are included with the **Arduino Uno R4 WiFi
    - `ssid` / `pass` – your WiFi
    - `host` – Keg Monitor server hostname (no `https://`)
    - `deviceId` / `deviceSecret` – from the web app **Admin → Devices** (create a device and copy both)
-2. Set `NUM_TAPS` to how many taps this Arduino reports (e.g. 1 for one keg).
+2. Set `NUM_TAPS` to how many taps this Arduino reports (default 2). Pin defines `FLOW_PIN_0`, `FLOW_PIN_1`, and `ONE_WIRE_PIN` match the wiring table above.
 3. Calibrate **pulses per ounce**: pour a known volume (e.g. 16 oz), note the pulse count, then set `PULSES_PER_OUNCE` or the per-tap **Pulses per ounce** in Admin so that `ounces = pulses / pulses_per_ounce` matches reality.
 
 ## Server and taps
@@ -58,11 +64,7 @@ The sketch uses **WiFiSSLClient** and connects to port 443. The server must pres
 
 ## Multiple flow sensors
 
-This example uses a single flow sensor on one tap. For multiple taps with one Arduino:
-
-- Use one interrupt-capable pin per flow sensor.
-- Use one `volatile` counter per pin and one ISR per pin (or one ISR that checks which pin fired).
-- In `loop()`, build `pours` with one `{"pulses": delta}` per tap in the same order as `device_tap_index`.
+The default sketch is set up for **two** flow sensors (pins 2 and 3) and one temperature sensor (pin 7). Each flow pin has its own ISR (`flowISR0`, `flowISR1`). To add more taps, define more `FLOW_PIN_*` and ISRs, and increase `NUM_TAPS`.
 
 ## Optional: Raspberry Pi
 

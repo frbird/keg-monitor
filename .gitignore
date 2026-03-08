@@ -3,5 +3,6 @@ client/node_modules/
 .env
 *.db
 server/data/
+.session_secret
 client/dist/
 .DS_Store

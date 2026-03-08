@@ -77,6 +77,10 @@ CREATE TABLE IF NOT EXISTS devices (
   id TEXT PRIMARY KEY,
   secret_hash TEXT NOT NULL,
   name TEXT,
+  last_seen_at TEXT,
+  board_model TEXT,
+  board_info TEXT,
+  sensor_config TEXT,
   created_at TEXT DEFAULT (datetime('now'))
 );
 

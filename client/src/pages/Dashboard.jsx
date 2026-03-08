@@ -59,6 +59,16 @@ function TapCard({ tap, showPercent }) {
           <span className="temp-na">—</span>
         )}
       </div>
+      {(tap.deviceBoard || (tap.deviceSensors && tap.deviceSensors.length)) ? (
+        <div className="tap-card-device">
+          {tap.deviceBoard && <span className="tap-card-device-board">{tap.deviceBoard}</span>}
+          {tap.deviceSensors && Array.isArray(tap.deviceSensors) && tap.deviceSensors.length ? (
+            <span className="tap-card-device-sensors">
+              {tap.deviceSensors.map((s) => `${s.type}: ${s.model}`).join(' · ')}
+            </span>
+          ) : null}
+        </div>
+      ) : null}
     </article>
   );
 }

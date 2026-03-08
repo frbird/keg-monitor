@@ -3,3 +3,43 @@
 .admin-secret-box {
   margin-top: 1rem;
 }
+
+.device-status {
+  display: inline-block;
+  padding: 0.2rem 0.5rem;
+  border-radius: 4px;
+  font-size: 0.8rem;
+  font-weight: 500;
+}
+
+.device-status-connected {
+  background: rgba(63, 185, 80, 0.2);
+  color: var(--success);
+}
+
+.device-status-disconnected {
+  background: rgba(210, 153, 83, 0.2);
+  color: var(--beer);
+}
+
+.device-status-never_seen {
+  background: rgba(139, 148, 158, 0.2);
+  color: var(--text-muted);
+}
+
+.admin-devices-table .device-id {
+  font-size: 0.8rem;
+}
+
+.admin-devices-last-seen {
+  font-size: 0.9rem;
+  color: var(--text-muted);
+}
+
+.admin-devices-readings {
+  font-size: 0.85rem;
+  max-width: 200px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

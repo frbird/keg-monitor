@@ -5,9 +5,27 @@ const cors = require('cors');
 const helmet = require('helmet');
 const morgan = require('morgan');
 const session = require('express-session');
-const { db } = require('./db');
+const { db, dataDir } = require('./db');
 const { verifyUser } = require('./auth');
 const { verifyDevice } = require('./device-auth');
+const crypto = require('crypto');
+const fs = require('fs');
+
+function getSessionSecret() {
+  if (process.env.SESSION_SECRET) return process.env.SESSION_SECRET;
+  const secretFile = path.join(dataDir, '.session_secret');
+  try {
+    if (fs.existsSync(secretFile)) return fs.readFileSync(secretFile, 'utf8').trim();
+    const secret = crypto.randomBytes(32).toString('hex');
+    fs.writeFileSync(secretFile, secret, { mode: 0o600 });
+    return secret;
+  } catch (e) {
+    console.warn('Could not read/write session secret file, using ephemeral secret (sessions invalid after restart):', e.message);
+    return crypto.randomBytes(32).toString('hex');
+  }
+}
+
+const sessionSecret = getSessionSecret();
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -16,8 +34,6 @@ app.use(helmet({ contentSecurityPolicy: false }));
 app.use(cors({ origin: process.env.CORS_ORIGIN || true, credentials: true }));
 app.use(morgan('combined'));
 app.use(express.json());
-
-const sessionSecret = process.env.SESSION_SECRET || 'keg-monitor-secret-change-in-production';
 app.use(session({
   secret: sessionSecret,
   resave: false,
@@ -32,12 +48,14 @@ app.use(express.static(clientDist));
 // --- Public API (dashboard data, no auth) ---
 app.get('/api/dashboard', (req, res) => {
   const taps = db.prepare(`
-    SELECT t.id, t.name, t.remaining_ounces, t.total_ounces, t.updated_at,
+    SELECT t.id, t.name, t.remaining_ounces, t.total_ounces, t.updated_at, t.device_id,
            b.brewery, b.beer_style, b.name AS beer_name, b.logo_url,
-           ks.name AS keg_size_name
+           ks.name AS keg_size_name,
+           d.board_model AS device_board_model, d.board_info AS device_board_info, d.sensor_config AS device_sensor_config
     FROM taps t
     LEFT JOIN beers b ON t.beer_id = b.id
     LEFT JOIN keg_sizes ks ON t.keg_size_id = ks.id
+    LEFT JOIN devices d ON t.device_id = d.id
     ORDER BY t.id
   `).all();
 
@@ -62,7 +80,10 @@ app.get('/api/dashboard', (req, res) => {
     remainingOunces: t.remaining_ounces,
     levelPercent: t.total_ounces > 0 ? Math.round(100 * t.remaining_ounces / t.total_ounces) : 0,
     temperatureCelsius: tempByTap[t.id] != null ? tempByTap[t.id] : null,
-    updatedAt: t.updated_at
+    updatedAt: t.updated_at,
+    deviceBoard: t.device_board_model || null,
+    deviceBoardInfo: t.device_board_info || null,
+    deviceSensors: t.device_sensor_config ? (() => { try { return JSON.parse(t.device_sensor_config); } catch { return null; } })() : null
   }));
 
   res.json({ taps: data });
@@ -80,12 +101,34 @@ function deviceAuth(req, res, next) {
 }
 
 app.post('/api/device/metrics', deviceAuth, (req, res) => {
-  const { temperatures, pours } = req.body || {};
+  const { temperatures, pours, deviceInfo } = req.body || {};
   if (!temperatures && !pours) {
     return res.status(400).json({ error: 'Provide temperatures and/or pours' });
   }
 
   const deviceId = req.deviceId;
+  const now = new Date().toISOString();
+
+  // Update device last_seen and optional board/sensor info from device
+  const deviceUpdate = db.prepare(`
+    UPDATE devices SET last_seen_at = ?,
+      board_model = COALESCE(?, board_model),
+      board_info = COALESCE(?, board_info),
+      sensor_config = COALESCE(?, sensor_config)
+    WHERE id = ?
+  `);
+  let boardModel = null;
+  let boardInfo = null;
+  let sensorConfigJson = null;
+  if (deviceInfo && typeof deviceInfo === 'object') {
+    if (deviceInfo.board) boardModel = deviceInfo.board;
+    if (deviceInfo.boardInfo != null) boardInfo = typeof deviceInfo.boardInfo === 'string' ? deviceInfo.boardInfo : JSON.stringify(deviceInfo.boardInfo);
+    if (deviceInfo.sensors && Array.isArray(deviceInfo.sensors)) {
+      sensorConfigJson = JSON.stringify(deviceInfo.sensors);
+    }
+  }
+  deviceUpdate.run(now, boardModel, boardInfo, sensorConfigJson, deviceId);
+
   const tapsForDevice = db.prepare('SELECT id FROM taps WHERE device_id = ? ORDER BY device_tap_index ASC, id ASC').all(deviceId);
   const tapIdsByIndex = tapsForDevice.map((t) => t.id);
 
@@ -93,8 +136,6 @@ app.post('/api/device/metrics', deviceAuth, (req, res) => {
     if (entry.tapId != null) return entry.tapId;
     return tapIdsByIndex[index] ?? null;
   }
-
-  const now = new Date().toISOString();
 
   if (Array.isArray(temperatures)) {
     const ins = db.prepare('INSERT INTO temperature_readings (tap_id, celsius) VALUES (?, ?)');
@@ -128,6 +169,13 @@ app.post('/api/device/metrics', deviceAuth, (req, res) => {
     });
   }
 
+  res.json({ ok: true });
+});
+
+// Lightweight keepalive: only updates last_seen_at
+app.post('/api/device/heartbeat', deviceAuth, (req, res) => {
+  const now = new Date().toISOString();
+  db.prepare('UPDATE devices SET last_seen_at = ? WHERE id = ?').run(now, req.deviceId);
   res.json({ ok: true });
 });
 
@@ -274,9 +322,50 @@ app.delete('/api/admin/taps/:id', adminAuth, (req, res) => {
 });
 
 // Devices (for hardware auth)
+const DEVICE_CONNECTED_SECONDS = 120; // consider connected if last_seen within 2 min
+
+function getDeviceLatestReadings(deviceId) {
+  const tapIds = db.prepare('SELECT id FROM taps WHERE device_id = ? ORDER BY device_tap_index, id').all(deviceId).map(r => r.id);
+  if (tapIds.length === 0) return { temperatures: [], pours: [] };
+  const placeholders = tapIds.map(() => '?').join(',');
+  const temps = db.prepare(`
+    SELECT tap_id, celsius, created_at FROM (
+      SELECT tap_id, celsius, created_at, ROW_NUMBER() OVER (PARTITION BY tap_id ORDER BY created_at DESC) rn
+      FROM temperature_readings WHERE tap_id IN (${placeholders})
+    ) WHERE rn = 1
+  `).all(...tapIds);
+  const pours = db.prepare(`
+    SELECT tap_id, ounces, pulses, created_at FROM (
+      SELECT tap_id, ounces, pulses, created_at, ROW_NUMBER() OVER (PARTITION BY tap_id ORDER BY created_at DESC) rn
+      FROM pour_events WHERE tap_id IN (${placeholders})
+    ) WHERE rn = 1
+  `).all(...tapIds);
+  return { temperatures: temps, pours };
+}
+
 app.get('/api/admin/devices', adminAuth, (req, res) => {
-  const rows = db.prepare('SELECT id, name, created_at FROM devices').all();
-  res.json(rows);
+  const rows = db.prepare('SELECT id, name, created_at, last_seen_at, board_model, board_info, sensor_config FROM devices ORDER BY created_at').all();
+  const now = Date.now() / 1000;
+  const devices = rows.map(d => {
+    const lastSeen = d.last_seen_at ? new Date(d.last_seen_at).getTime() / 1000 : null;
+    const connected = lastSeen != null && (now - lastSeen) <= DEVICE_CONNECTED_SECONDS;
+    let sensorConfig = null;
+    if (d.sensor_config) try { sensorConfig = JSON.parse(d.sensor_config); } catch {}
+    const latest = getDeviceLatestReadings(d.id);
+    return {
+      id: d.id,
+      name: d.name,
+      created_at: d.created_at,
+      last_seen_at: d.last_seen_at,
+      connection_status: connected ? 'connected' : (lastSeen ? 'disconnected' : 'never_seen'),
+      board_model: d.board_model,
+      board_info: d.board_info,
+      sensor_config: sensorConfig,
+      latest_temperatures: latest.temperatures,
+      latest_pours: latest.pours
+    };
+  });
+  res.json(devices);
 });
 
 app.post('/api/admin/devices', adminAuth, (req, res) => {
@@ -287,6 +376,32 @@ app.post('/api/admin/devices', adminAuth, (req, res) => {
   const { createDevice } = require('./device-auth');
   createDevice(id, secret, name);
   res.status(201).json({ id, secret, name });
+});
+
+app.put('/api/admin/devices/:id', adminAuth, (req, res) => {
+  const id = String(req.params.id);
+  const { name, sensor_config } = req.body || {};
+  const device = db.prepare('SELECT id FROM devices WHERE id = ?').get(id);
+  if (!device) return res.status(404).json({ error: 'Device not found' });
+  const updates = [];
+  const values = [];
+  if (name !== undefined) { updates.push('name = ?'); values.push(name || null); }
+  if (sensor_config !== undefined) {
+    updates.push('sensor_config = ?');
+    values.push(Array.isArray(sensor_config) ? JSON.stringify(sensor_config) : (typeof sensor_config === 'string' ? sensor_config : null));
+  }
+  if (updates.length) {
+    values.push(id);
+    db.prepare(`UPDATE devices SET ${updates.join(', ')} WHERE id = ?`).run(...values);
+  }
+  res.json({ ok: true });
+});
+
+app.delete('/api/admin/devices/:id', adminAuth, (req, res) => {
+  const id = String(req.params.id);
+  db.prepare('UPDATE taps SET device_id = NULL WHERE device_id = ?').run(id);
+  db.prepare('DELETE FROM devices WHERE id = ?').run(id);
+  res.json({ ok: true });
 });
 
 // SPA fallback

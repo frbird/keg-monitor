@@ -1,19 +1,6 @@
 # Keg Monitor – web app
-# Build: docker build -t keg-monitor .
+# Build: npm run build  (then)  docker build -t keg-monitor .
 # Run:   docker run -p 3000:3000 -v keg-data:/app/data -e SESSION_SECRET=xxx keg-monitor
-
-FROM node:20-alpine AS builder
-
-WORKDIR /app
-
-COPY package.json package-lock.json* ./
-RUN npm ci --omit=dev 2>/dev/null || npm install --omit=dev
-
-COPY client/package.json client/package-lock.json* client/
-RUN cd client && (npm ci --omit=dev 2>/dev/null || npm install --omit=dev)
-
-COPY client ./client
-RUN cd client && npm run build
 
 FROM node:20-alpine
 
@@ -23,7 +10,8 @@ COPY package.json ./
 RUN npm install --omit=dev
 
 COPY server ./server
-COPY --from=builder /app/client/dist ./client/dist
+# Pre-built client (run "npm run build" in project root before docker build)
+COPY client/dist ./client/dist
 
 ENV NODE_ENV=production
 ENV PORT=3000

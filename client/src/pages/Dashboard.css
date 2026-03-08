@@ -198,3 +198,17 @@
 .temp-na {
   color: var(--text-muted);
 }
+
+.tap-card-device {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  margin-top: 0.25rem;
+}
+
+.tap-card-device-board {
+  font-weight: 500;
+}
+
+.tap-card-device-sensors {
+  margin-left: 0.5rem;
+}
