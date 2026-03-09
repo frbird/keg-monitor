@@ -45,6 +45,18 @@ function TapCard({ tap, showPercent, showKegSize = true, tempUnit = 'F', showDev
           beerColor="var(--beer)"
         />
       </div>
+      <div className="tap-card-ounces">
+        <span className="tap-card-ounces-remaining">
+          {tap.totalOunces != null && tap.remainingOunces != null
+            ? `${Math.round(tap.remainingOunces)} / ${tap.totalOunces} oz remaining`
+            : '—'}
+        </span>
+        <span className="tap-card-ounces-poured">
+          {tap.totalOunces != null && tap.remainingOunces != null
+            ? `${Math.round(Math.max(0, tap.totalOunces - tap.remainingOunces))} oz poured`
+            : ''}
+        </span>
+      </div>
       <div className="tap-card-temp">
         {tempC != null ? (
           tempUnit === 'C' ? (

@@ -188,6 +188,23 @@
   color: var(--text-muted);
 }
 
+.tap-card-ounces {
+  font-size: 0.9rem;
+  color: var(--text-muted);
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.tap-card-ounces-remaining {
+  font-family: var(--font-mono);
+  color: var(--text);
+}
+
+.tap-card-ounces-poured {
+  font-size: 0.85rem;
+}
+
 .tap-card-temp {
   font-family: var(--font-mono);
   font-size: 0.95rem;
